@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
-// Read API base URL from environment — set VITE_API_URL in frontend/.env
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const BADGE = {
-  five_day:  { label: "5-day setup", bg: "#EAF3DE", color: "#3B6D11", border: "#639922" },
+  five_day: { label: "5-day setup", bg: "#EAF3DE", color: "#3B6D11", border: "#639922" },
   three_day: { label: "3-day setup", bg: "#E6F1FB", color: "#185FA5", border: "#378ADD" },
-  immediate: { label: "RSI > 0",     bg: "#FAEEDA", color: "#854F0B", border: "#BA7517" },
+  immediate: { label: "RSI > 0", bg: "#FAEEDA", color: "#854F0B", border: "#BA7517" },
 };
 
 function Badge({ type }) {
@@ -23,7 +22,7 @@ function Badge({ type }) {
 }
 
 function MiniBar({ value, max = 20 }) {
-  const pct   = Math.min(100, (value / max) * 100);
+  const pct = Math.min(100, (value / max) * 100);
   const color = value >= 8.5 ? "#3B6D11" : value > 0 ? "#BA7517" : "#B4B2A9";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -56,6 +55,7 @@ function PriorDots({ prior }) {
 
 function SignalRow({ sig }) {
   const [expanded, setExpanded] = useState(false);
+  const strongest = sig.five_day ? "five_day" : sig.three_day ? "three_day" : "immediate";
 
   return (
     <>
@@ -91,9 +91,7 @@ function SignalRow({ sig }) {
           <td colSpan={6} style={{ padding: "10px 16px 14px" }}>
             <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>
-                  Prior days (newest → oldest)
-                </div>
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>Prior days (newest → oldest)</div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {sig.prior_banker_rsi.map((p, i) => (
                     <div key={i} style={{
@@ -108,11 +106,9 @@ function SignalRow({ sig }) {
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>
-                  Signal strength
-                </div>
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>Signal strength</div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  {sig.five_day  && <Badge type="five_day" />}
+                  {sig.five_day && <Badge type="five_day" />}
                   {sig.three_day && <Badge type="three_day" />}
                   {sig.immediate && <Badge type="immediate" />}
                 </div>
@@ -128,7 +124,6 @@ function SignalRow({ sig }) {
 function FilterBar({ filter, setFilter, count }) {
   const btn = (key, label) => (
     <button
-      key={key}
       onClick={() => setFilter(key)}
       style={{
         fontSize: 12, padding: "5px 12px", borderRadius: 6, cursor: "pointer",
@@ -143,8 +138,8 @@ function FilterBar({ filter, setFilter, count }) {
   );
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-      {btn("all",       "All signals")}
-      {btn("five_day",  "5-day only")}
+      {btn("all", "All signals")}
+      {btn("five_day", "5-day only")}
       {btn("three_day", "3-day only")}
       {btn("immediate", "RSI > 0 only")}
       <span style={{ fontSize: 12, color: "var(--color-text-secondary)", marginLeft: 4 }}>
@@ -154,23 +149,107 @@ function FilterBar({ filter, setFilter, count }) {
   );
 }
 
+function CopyButton({ label, text, color }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <button onClick={handleCopy} style={{
+      fontSize: 12, padding: "5px 12px", borderRadius: 6, cursor: "pointer",
+      border: `1px solid ${color}`, background: copied ? color : "transparent",
+      color: copied ? "#fff" : color, fontWeight: 500, transition: "all 0.15s",
+      whiteSpace: "nowrap",
+    }}>
+      {copied ? "✓ Copied!" : label}
+    </button>
+  );
+}
+
+function TradingViewPanel({ signals }) {
+  const [open, setOpen] = useState(false);
+
+  const lists = {
+    five_day:  signals.filter(s => s.five_day).map(s => `NASDAQ:${s.ticker}`).join(","),
+    three_day: signals.filter(s => s.three_day && !s.five_day).map(s => `NASDAQ:${s.ticker}`).join(","),
+    immediate: signals.filter(s => s.immediate).map(s => `NASDAQ:${s.ticker}`).join(","),
+  };
+
+  const counts = {
+    five_day:  signals.filter(s => s.five_day).length,
+    three_day: signals.filter(s => s.three_day && !s.five_day).length,
+    immediate: signals.filter(s => s.immediate).length,
+  };
+
+  return (
+    <div style={{ marginBottom: "0.75rem" }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        fontSize: 12, padding: "5px 14px", borderRadius: 6, cursor: "pointer",
+        border: "0.5px solid var(--color-border-secondary)", background: "transparent",
+        color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6,
+      }}>
+        <span>📋</span> TradingView lists {open ? "▲" : "▼"}
+      </button>
+
+      {open && (
+        <div style={{
+          marginTop: 8, padding: "14px 16px", borderRadius: "var(--border-radius-md)",
+          border: "0.5px solid var(--color-border-tertiary)",
+          background: "var(--color-background-secondary)",
+          display: "flex", flexDirection: "column", gap: 12,
+        }}>
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
+            Copy a list and paste it into TradingView's Watchlist import (+ → Import watchlist).
+          </p>
+
+          {[
+            { key: "five_day",  label: "5-day setups",  color: "#3B6D11" },
+            { key: "three_day", label: "3-day setups",  color: "#185FA5" },
+            { key: "immediate", label: "All RSI > 0",   color: "#854F0B" },
+          ].map(({ key, label, color }) => (
+            <div key={key}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 500, color }}>{label} ({counts[key]})</span>
+                {lists[key] && <CopyButton label={`Copy ${label}`} text={lists[key]} color={color} />}
+              </div>
+              <div style={{
+                fontSize: 11, fontFamily: "var(--font-mono)", padding: "6px 10px",
+                background: "var(--color-background-primary)", borderRadius: 4,
+                border: "0.5px solid var(--color-border-tertiary)",
+                color: "var(--color-text-secondary)", wordBreak: "break-all",
+                maxHeight: 60, overflowY: "auto", lineHeight: 1.6,
+              }}>
+                {lists[key] || <em>No tickers</em>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
-  const [dates,        setDates]        = useState([]);
+  const [dates, setDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
-  const [signals,      setSignals]      = useState([]);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState(null);
-  const [filter,       setFilter]       = useState("all");
-  const [search,       setSearch]       = useState("");
-  const [health,       setHealth]       = useState(null);
-  const [sortCol,      setSortCol]      = useState(null);
-  const [sortDir,      setSortDir]      = useState("asc");
+  const [signals, setSignals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [health, setHealth] = useState(null);
+  const [sortCol, setSortCol] = useState(null);
+  const [sortDir, setSortDir] = useState("asc");
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
   };
 
+  // Load available dates on mount, re-check every 60s for new data
   const fetchDates = useCallback((isInitial = false) => {
     fetch(`${API}/dates`)
       .then(r => r.json())
@@ -186,9 +265,8 @@ export default function App() {
         });
       })
       .catch(() => {
-        if (isInitial) setError("Cannot reach API — is the Flask server running? Check that VITE_API_URL is set correctly.");
+        if (isInitial) setError("Cannot reach API at localhost:5000 — is the Flask server running?");
       });
-
     fetch(`${API}/health`)
       .then(r => r.json())
       .then(d => setHealth(d))
@@ -197,10 +275,11 @@ export default function App() {
 
   useEffect(() => {
     fetchDates(true);
-    const id = setInterval(() => fetchDates(false), 60_000);
-    return () => clearInterval(id);
+    const interval = setInterval(() => fetchDates(false), 60_000);
+    return () => clearInterval(interval);
   }, [fetchDates]);
 
+  // Load signals when date changes
   useEffect(() => {
     if (!selectedDate) return;
     setLoading(true);
@@ -212,7 +291,7 @@ export default function App() {
         setLoading(false);
       })
       .catch(e => {
-        setError(`Failed to load signals: ${e.message}`);
+        setError("Failed to fetch signals: " + e.message);
         setLoading(false);
       });
   }, [selectedDate]);
@@ -222,7 +301,7 @@ export default function App() {
       const matchFilter =
         filter === "all"       ? true :
         filter === "five_day"  ? s.five_day :
-        filter === "three_day" ? (s.three_day && !s.five_day) :
+        filter === "three_day" ? (s.three_day && !s.five_day) :   // ← fixed: exclude 5-day
         filter === "immediate" ? (s.immediate && !s.three_day && !s.five_day) : true;
       const matchSearch = search === "" || s.ticker.toLowerCase().includes(search.toLowerCase());
       return matchFilter && matchSearch;
@@ -232,15 +311,15 @@ export default function App() {
 
     return [...base].sort((a, b) => {
       let av, bv;
-      if      (sortCol === "ticker") { av = a.ticker;     bv = b.ticker; }
-      else if (sortCol === "rsi")    { av = a.banker_rsi; bv = b.banker_rsi; }
-      else if (sortCol === "close")  { av = a.close;      bv = b.close; }
+      if (sortCol === "ticker")      { av = a.ticker;      bv = b.ticker; }
+      else if (sortCol === "rsi")    { av = a.banker_rsi;  bv = b.banker_rsi; }
+      else if (sortCol === "close")  { av = a.close;       bv = b.close; }
       else if (sortCol === "signal") {
         const rank = s => s.five_day ? 0 : s.three_day ? 1 : 2;
         av = rank(a); bv = rank(b);
       }
       if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ?  1 : -1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
   }, [signals, filter, search, sortCol, sortDir]);
@@ -253,9 +332,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "var(--font-sans)", padding: "1.5rem", maxWidth: 900 }}>
-      <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)" }}>
-        Banker RSI Buy Signal Dashboard
-      </h1>
+      <h2 style={{ sr: "only" }}>Banker RSI Buy Signal Dashboard</h2>
 
       {/* Header */}
       <div style={{ marginBottom: "1.5rem" }}>
@@ -285,7 +362,9 @@ export default function App() {
             onChange={e => setSelectedDate(e.target.value)}
             style={{ fontSize: 13, padding: "5px 8px" }}
           >
-            {dates.map(d => <option key={d} value={d}>{d}</option>)}
+            {dates.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
           </select>
         </div>
         <input
@@ -300,9 +379,9 @@ export default function App() {
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: "1rem" }}>
         {[
-          { key: "five_day",  label: "5-day setups",  color: "#3B6D11" },
-          { key: "three_day", label: "3-day setups",  color: "#185FA5" },
-          { key: "immediate", label: "RSI > 0 total", color: "#854F0B" },
+          { key: "five_day", label: "5-day setups", bg: "#EAF3DE", color: "#3B6D11" },
+          { key: "three_day", label: "3-day setups", bg: "#E6F1FB", color: "#185FA5" },
+          { key: "immediate", label: "RSI > 0 total", bg: "#FAEEDA", color: "#854F0B" },
         ].map(card => (
           <div
             key={card.key}
@@ -323,6 +402,9 @@ export default function App() {
       <div style={{ marginBottom: "0.75rem" }}>
         <FilterBar filter={filter} setFilter={setFilter} count={filtered.length} />
       </div>
+
+      {/* TradingView copy panel */}
+      <TradingViewPanel signals={signals} />
 
       {/* Error */}
       {error && (
@@ -352,12 +434,12 @@ export default function App() {
           <thead>
             <tr style={{ background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
               {[
-                { label: "Ticker",       col: "ticker", align: "left"   },
-                { label: "Signal",       col: "signal", align: "left"   },
-                { label: "Banker RSI",   col: "rsi",    align: "left"   },
-                { label: "Prior 5 days", col: null,     align: "left"   },
-                { label: "Close",        col: "close",  align: "right"  },
-                { label: "",             col: null,     align: "center" },
+                { label: "Ticker",      col: "ticker",  align: "left" },
+                { label: "Signal",      col: "signal",  align: "left" },
+                { label: "Banker RSI",  col: "rsi",     align: "left" },
+                { label: "Prior 5 days",col: null,      align: "left" },
+                { label: "Close",       col: "close",   align: "right" },
+                { label: "",            col: null,      align: "center" },
               ].map((h, i) => (
                 <th key={i}
                   onClick={() => h.col && handleSort(h.col)}
@@ -367,7 +449,8 @@ export default function App() {
                     color: sortCol === h.col ? "var(--color-text-primary)" : "var(--color-text-secondary)",
                     textTransform: "uppercase", letterSpacing: "0.05em",
                     cursor: h.col ? "pointer" : "default",
-                    userSelect: "none", whiteSpace: "nowrap",
+                    userSelect: "none",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {h.label}
@@ -382,17 +465,13 @@ export default function App() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
-                  Loading…
-                </td>
-              </tr>
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
+                Loading…
+              </td></tr>
             ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
-                  No signals for {selectedDate} with current filter.
-                </td>
-              </tr>
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
+                No signals for {selectedDate} with current filter.
+              </td></tr>
             ) : (
               filtered.map(sig => <SignalRow key={sig.ticker} sig={sig} />)
             )}

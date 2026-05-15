@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.eggs/
+*.egg
+venv/
+.venv/
+env/
+
+# Environment files — NEVER commit these
+.env
+backend/.env
+frontend/.env
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (EOD txt files can be large)
+data/NASDAQ_*.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
